@@ -36,6 +36,7 @@ import org.opencv.imgproc.Imgproc;
 
 import java.util.LinkedList;
 import java.util.List;
+import java.util.StringTokenizer;
 
 public class MainActivity extends AppCompatActivity implements CvCameraViewListener2 {
 
@@ -136,11 +137,12 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
             frame_previous = frame_first.clone();
             frame_previous_out = frame_first.clone();
         }
-        if (frame_number >= 50) {
+        if (frame_number >= 5) {
             frame_number = 0;
             Mat frame_this = inputFrame.gray();
             Core.flip(frame_this, frame_this, 1);
             Core.flip(frame_this, frame_this, 0);
+            int width_of_image = frame_this.width();
 /////////////////////////////////////////////////////////
 
             Mat refMat = frame_this.clone();
@@ -177,15 +179,25 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
             double max_dist = 0;
             double min_dist = 100;
             List<DMatch> matchesList = matches.toList();
-
+            boolean isFirsl = false;
+            Point srcPoints = new Point(20,20);
+            Point refPoints = new Point(20,20);
             for (int i = 0; i < refDescriptors.rows(); i++) {
                 Double distance = (double) matchesList.get(i).distance;
+                int qidX = matchesList.get(i).queryIdx;
+                int tidX = matchesList.get(i).trainIdx;
+                if(!isFirsl){
+                    srcPoints = srcKeyPoints.toArray()[tidX].pt;
+                    refPoints = srcKeyPoints.toArray()[qidX].pt;
+                    isFirsl = true;
+
+                }
                 if (distance < min_dist) min_dist = distance;
                 if (distance > max_dist) max_dist = distance;
             }
 
             for (int i = 0; i < refDescriptors.rows(); i++) {
-                if (matchesList.get(i).distance < 30 * min_dist) {
+                if (matchesList.get(i).distance < 3 * min_dist) {
                     listOfGoodMatches.add(matchesList.get(i));
                 }
             }
@@ -205,9 +217,13 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
             Mat outputImage = new Mat();
             Features2d.drawMatches(refMat, refKeypoints, srcMat, srcKeyPoints, goodMatches, outputImage);
 
-            System.out.println(frame_this.size() + "  " + outputImage.size());
             outputImage.convertTo(outputImage,0);
+            float distance = getDistance(2,(int)Math.abs(srcPoints.x - width_of_image/2),(int)Math.abs(refPoints.x - width_of_image/2));
+            String distance_str = String.format("%.2f",distance);
+            Imgproc.putText(outputImage,distance_str,srcPoints,Core.FONT_ITALIC,2.0,new Scalar(244));
+            Imgproc.putText(outputImage,distance_str,new Point(refPoints.x+ frame_this.width(),refPoints.y ),Core.FONT_ITALIC,1.0,new Scalar(244));
             Imgproc.resize(outputImage,outputImage,frame_this.size());
+
 ///////////////////////////////////////////////////////////
             frame_previous = frame_this.clone();
             frame_previous_out = outputImage.clone();
@@ -217,5 +233,9 @@ public class MainActivity extends AppCompatActivity implements CvCameraViewListe
         }
         frame_number++;
         return frame_final; // This function must return
+    }
+
+    float getDistance(int L,int d1,int d2){
+        return Math.abs((L*d1)/(float)(d2-d1));
     }
 }
